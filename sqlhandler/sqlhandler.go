@@ -104,19 +104,26 @@ func GetLast24hPower(db *sql.DB, cluster string) (power float64, err error) {
 // GetLastEpochPower retrieves the computing power for the last epoch for a given cluster.
 func GetLastEpochPower(db *sql.DB, cluster string) (power float64, err error) {
 	query := fmt.Sprintf(`
-		with recent_epochs as (SELECT miner_account_id, epoch_time, hash_count
-                       FROM epoch_distributor
-                       WHERE epoch_time IN (SELECT DISTINCT epoch_time
-                                            FROM epoch_distributor
-                                            ORDER BY epoch_time DESC
-                                            LIMIT 2)
-                         and miner_account_id IN (SELECT id FROM miner_account WHERE name = '%s')
-
-                       ORDER BY epoch_time DESC)
-		select (select hash_count FROM recent_epochs order by epoch_time desc limit 1) /
-       	EXTRACT(EPOCH FROM (MAX(epoch_time) - MIN(epoch_time))) / 1000000 AS avg_computing_power
-		from recent_epochs
+		WITH recent_epochs AS (
+			SELECT miner_account_id, epoch_time, hash_count
+			FROM epoch_distributor
+			WHERE epoch_time IN (
+				SELECT DISTINCT epoch_time
+				FROM epoch_distributor
+				ORDER BY epoch_time DESC
+				LIMIT 2
+			)
+			AND miner_account_id IN (SELECT id FROM miner_account WHERE name = '%s')
+			ORDER BY epoch_time DESC
+		)
+		SELECT COALESCE(
+			(SELECT hash_count FROM recent_epochs ORDER BY epoch_time DESC LIMIT 1) /
+			EXTRACT(EPOCH FROM (MAX(epoch_time) - MIN(epoch_time))) / 1000000,
+			0
+		) AS avg_computing_power
+		FROM recent_epochs
 	`, cluster)
+
 	err = db.QueryRow(query).Scan(&power)
 
 	if err == sql.ErrNoRows {
@@ -126,6 +133,7 @@ func GetLastEpochPower(db *sql.DB, cluster string) (power float64, err error) {
 
 	return power, err
 }
+
 
 // GetYesterdayReward retrieves the reward for yesterday for a given cluster.
 func GetYesterdayReward(db *sql.DB, cluster string) (reward float64, err error) {

@@ -38,7 +38,7 @@ func main() {
 		if err != nil {
 			log.Printf("get aleo cluster info failed, err: %s, will retry in %d min", err, *interval)
 			time.Sleep(time.Duration(*interval) * time.Minute)
-			continue
+			break
 		}
 		log.Println("get aleo cluster info success, cluster: ", clusterList)
 
